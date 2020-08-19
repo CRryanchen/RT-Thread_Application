@@ -13,7 +13,7 @@
  */
 // 定义线程控制块指针
 static rt_thread_t led1_thread = RT_NULL;
-static rt_thread_t led2_thread = RT_NULL;
+static rt_thread_t key_thread = RT_NULL;
 
 /*
  ******************************************************************
@@ -21,7 +21,7 @@ static rt_thread_t led2_thread = RT_NULL;
  ******************************************************************
  */
 static void led1_thread_entry(void *parameter);
-static void led2_thread_entry(void *parameter);
+static void key_thread_entry(void *parameter);
 
 
 /*
@@ -41,6 +41,8 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 线程管理实验！\n\n");
+	rt_kprintf("按下 K1 挂起线程，按下K2 恢复线程\n");
 
 	led1_thread = 									// 线程控制块指针
 	rt_thread_create("led1",							// 线程名字
@@ -60,18 +62,18 @@ int main(void)
 		return -1;
 	}
 
-	led2_thread = 									// 线程控制块指针
-	rt_thread_create("led2",							// 线程名字
-					led2_thread_entry,				// 线程入口函数
+	key_thread = 									// 线程控制块指针
+	rt_thread_create("key",							// 线程名字
+					key_thread_entry,				// 线程入口函数
 					RT_NULL,						// 线程入口函数参数
 					512,	// 线程栈大小
-					4,								// 线程的优先级
+					2,								// 线程的优先级
 					20);							// 线程时间片
 
 	// 启动线程，开启调度
-	if (led2_thread != RT_NULL)
+	if (key_thread != RT_NULL)
 	{
-		rt_thread_startup(led2_thread);
+		rt_thread_startup(key_thread);
 	}
 	else
 	{
@@ -90,20 +92,47 @@ static void led1_thread_entry(void *parameter)
 	{
 		LED1_ON;
 		rt_thread_delay(500);			// 延时 500 个tick
+		rt_kprintf("led1_thread running, LED1_ON\r\n");
 
 		LED1_OFF;
 		rt_thread_delay(500);			// 延时 500 个tick
+		rt_kprintf("led1_thread running, LED1_OFF\r\n");
 	}
 }
 
-static void led2_thread_entry(void *parameter)
+static void key_thread_entry(void *parameter)
 {
+	rt_err_t uwRet = RT_EOK;
 	while (1)
 	{
-		LED2_ON;
-		rt_thread_delay(300);			// 延时 500 个tick
+		if (Key_Scan(KEY1_GPIO_PORT, KEY1_GPIO_PIN) == KEY_ON)
+		{
+			rt_kprintf("挂起 LED1 线程！\n");
+			uwRet = rt_thread_suspend(led1_thread);
+			if (RT_EOK == uwRet)
+			{
+				rt_kprintf("挂起 LED1 线程成功！\n");
+			}
+			else
+			{
+				rt_kprintf("挂起 LED1 线程失败！失败代码：0x%lx\n", uwRet);
+			}
+		}
 
-		LED2_OFF;
-		rt_thread_delay(300);			// 延时 500 个tick
+		if (Key_Scan(KEY2_GPIO_PORT, KEY2_GPIO_PIN) == KEY_ON)
+		{
+			rt_kprintf("恢复 LED1 线程！\n");
+			uwRet = rt_thread_resume(led1_thread);
+			if (RT_EOK == uwRet)
+			{
+				rt_kprintf("恢复 LED1 线程成功！\n");
+			}
+			else
+			{
+				rt_kprintf("恢复 LED1 线程失败！失败代码：0x%lx\n", uwRet);
+			}
+		}
+		rt_thread_delay(20);
 	}
 }
+

@@ -85,6 +85,9 @@ void rt_hw_board_init()
     // 初始化开发板的串口
     USART_Config();
 
+    // 初始化按键
+    Key_GPIO_Config();
+
     /* Call components board initial (use INIT_BOARD_EXPORT()) */
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();

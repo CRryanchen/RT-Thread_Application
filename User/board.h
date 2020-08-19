@@ -16,6 +16,7 @@ extern "C"{
 // 开发板硬件 bsp 头文件
 #include "bsp_led.h"
 #include "bsp_usart.h"
+#include "bsp_key.h"
 
 /*
  ******************************************************************
