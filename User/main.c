@@ -13,7 +13,7 @@
  */
 // 定义线程控制块指针
 static rt_thread_t led1_thread = RT_NULL;
-
+static rt_thread_t led2_thread = RT_NULL;
 
 /*
  ******************************************************************
@@ -21,6 +21,7 @@ static rt_thread_t led1_thread = RT_NULL;
  ******************************************************************
  */
 static void led1_thread_entry(void *parameter);
+static void led2_thread_entry(void *parameter);
 
 
 /*
@@ -58,6 +59,24 @@ int main(void)
 	{
 		return -1;
 	}
+
+	led2_thread = 									// 线程控制块指针
+	rt_thread_create("led2",							// 线程名字
+					led2_thread_entry,				// 线程入口函数
+					RT_NULL,						// 线程入口函数参数
+					512,	// 线程栈大小
+					4,								// 线程的优先级
+					20);							// 线程时间片
+
+	// 启动线程，开启调度
+	if (led2_thread != RT_NULL)
+	{
+		rt_thread_startup(led2_thread);
+	}
+	else
+	{
+		return -1;
+	}
 }
 
 /*
@@ -69,10 +88,22 @@ static void led1_thread_entry(void *parameter)
 {
 	while (1)
 	{
-		LED2_ON;
+		LED1_ON;
 		rt_thread_delay(500);			// 延时 500 个tick
 
-		LED2_OFF;
+		LED1_OFF;
 		rt_thread_delay(500);			// 延时 500 个tick
+	}
+}
+
+static void led2_thread_entry(void *parameter)
+{
+	while (1)
+	{
+		LED2_ON;
+		rt_thread_delay(300);			// 延时 500 个tick
+
+		LED2_OFF;
+		rt_thread_delay(300);			// 延时 500 个tick
 	}
 }
