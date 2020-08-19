@@ -11,13 +11,20 @@
  *                          变量
  ******************************************************************
  */
+// 定义线程控制块
+static struct rt_thread led1_thread;
 
+// 定义线程栈时要求 RT_ALIGN_SIZE个字节对齐
+ALIGN(RT_ALIGN_SIZE)
+// 定义线程栈
+static rt_uint8_t rt_led1_thread_stack[1024];
 
 /*
  ******************************************************************
  *                          函数声明
  ******************************************************************
  */
+static void led1_thread_entry(void *parameter);
 
 
 /*
@@ -32,5 +39,37 @@
  */
 int main(void)
 {
-	/* 暂时没有在main线程里面创建应用线程 */
+	/*
+	 * 开发板硬件初始化，RTT系统初始化已经在main函数之前完成，
+	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
+	 * 所以在 main 函数中，只需要创建线程和启动线程即可
+	 */
+
+	rt_thread_init(&led1_thread,					// 线程控制块
+					"led1",							// 线程名字
+					led1_thread_entry,				// 线程入口函数
+					RT_NULL,						// 线程入口函数参数
+					&rt_led1_thread_stack[0],		// 线程栈起始地址
+					sizeof(rt_led1_thread_stack),	// 线程栈大小
+					3,								// 线程的优先级
+					20);							// 线程时间片
+
+	rt_thread_startup(&led1_thread);				// 启动线程，开始调度
+}
+
+/*
+ ******************************************************************
+ *                          线程定义
+ ******************************************************************
+ */
+static void led1_thread_entry(void *parameter)
+{
+	while (1)
+	{
+		LED1_ON;
+		rt_thread_delay(500);			// 延时 500 个tick
+
+		LED1_OFF;
+		rt_thread_delay(500);			// 延时 500 个tick
+	}
 }

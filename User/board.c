@@ -82,14 +82,6 @@ void rt_hw_board_init()
     // 初始化开发板的LED
     LED_GPIO_Config();
 
-    // 测试硬件是否正常工作
-    LED1_ON;
-
-    // 其他硬件初始化测试
-
-    // 让程序停在这里，不再继续往下执行
-    while (1);
-
     /* Call components board initial (use INIT_BOARD_EXPORT()) */
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();
