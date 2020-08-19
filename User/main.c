@@ -14,8 +14,18 @@
 // 定义线程控制块指针
 static rt_thread_t receive_thread = RT_NULL;
 static rt_thread_t send_thread = RT_NULL;
-// 定义消息队列控制块
-static rt_mq_t test_mq = RT_NULL;
+// 定义信号量控制块
+static rt_sem_t test_sem = RT_NULL;
+
+
+/*
+ ******************************************************************
+ *                          全局变量声明
+ ******************************************************************
+ */
+uint8_t ucValue[2] = {0x00, 0x00};
+
+
 /*
  ******************************************************************
  *                          函数声明
@@ -42,18 +52,16 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
-	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 消息队列实验！\n");
-	rt_kprintf("按下 K1 或者 按下K2 发送消息队列\n");
-	rt_kprintf("receive 线程接收到消息在串口回显\n");
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 二值信号量同步实验！\n");
+	rt_kprintf("同步成功输出 Successful，反之输出 Fail\n");
 
-	// 创建一个消息队列
-	test_mq = rt_mq_create("test_mq",			// 消息队列名字
-							40,					// 消息的最大长度
-							20,					// 消息队列的最大容量
+	// 创建一个信号量
+	test_sem = rt_sem_create("test_sem",			// 信号量名字
+							1,					// 信号量初始值，默认有一个信号量
 							RT_IPC_FLAG_FIFO);	// 队列模式 FIFO
-	if (test_mq != RT_NULL)
+	if (test_sem != RT_NULL)
 	{
-		rt_kprintf("消息队列创建成功！\n\n");
+		rt_kprintf("信号量创建成功！\n\n");
 	}
 
 	receive_thread = 									// 线程控制块指针
@@ -100,59 +108,35 @@ int main(void)
  */
 static void receive_thread_entry(void *parameter)
 {
-	rt_err_t uwRet = RT_EOK;
-	uint32_t r_queue;
 	while (1)
 	{
-		// 队列读取，等待时间为一直等待
-		uwRet = rt_mq_recv(test_mq,					// 读取队列的ID
-							&r_queue,				// 读取的数据位置
-							sizeof(r_queue),		// 读取数据的长度
-							RT_WAITING_FOREVER);	// 等待时间：一直等
-		if (uwRet == RT_EOK)
+		rt_sem_take(test_sem,				// 获取信号量
+					RT_WAITING_FOREVER);	// 等待时间：一直等
+		if ( ucValue[0] == ucValue[1])
 		{
-			rt_kprintf("本次接收到的数据是：%d\n",r_queue);
+			rt_kprintf("Successful\n");
 		}
 		else
 		{
-			rt_kprintf("数据接收出错,错误代码: 0x%lx\n",uwRet);
+			rt_kprintf("Fail\n");
 		}
-		rt_thread_delay(200);
-		
+		rt_sem_release(test_sem);
+
+		rt_thread_delay(1000);
 	}
 }
 
 static void send_thread_entry(void *parameter)
 {
-	rt_err_t uwRet = RT_EOK;
-	uint32_t send_data1 = 1;
-	uint32_t send_data2 = 2;
 	while (1)
 	{
-		if (Key_Scan(KEY1_GPIO_PORT, KEY1_GPIO_PIN) == KEY_ON)
-		{
-			// 将数据写入到队列中，等待时间为0
-			uwRet = rt_mq_send(test_mq,					// 写入队列的ID
-								&send_data1,			// 写入的数据
-								sizeof(send_data1));	// 数据的长度
-			if (RT_EOK != uwRet)
-			{
-				rt_kprintf("数据不能发送到消息队列！错误代码: %lx\n",uwRet);
-			}		
-		}
-
-		if (Key_Scan(KEY2_GPIO_PORT, KEY2_GPIO_PIN) == KEY_ON)
-		{
-			// 将数据写入到队列中，等待时间为0
-			uwRet = rt_mq_send(test_mq,					// 写入队列的ID
-								&send_data2,			// 写入的数据
-								sizeof(send_data2));	// 数据的长度
-			if (RT_EOK != uwRet)
-			{
-				rt_kprintf("数据不能发送到消息队列！错误代码: %lx\n",uwRet);
-			}
-		}
-		rt_thread_delay(20);
+		rt_sem_take(test_sem,				// 获取信号量
+					RT_WAITING_FOREVER);	// 等待时间：一直等
+		ucValue[0]++;
+		rt_thread_delay(100);				// 延时 100 ms
+		ucValue[1]++;
+		rt_sem_release(test_sem);			// 释放二元信号量
+		rt_thread_yield();					// 放弃剩余时间片，进行一次线程切换
 	}
 }
 
