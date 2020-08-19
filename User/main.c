@@ -11,13 +11,9 @@
  *                          变量
  ******************************************************************
  */
-// 定义线程控制块
-static struct rt_thread led1_thread;
+// 定义线程控制块指针
+static rt_thread_t led1_thread = RT_NULL;
 
-// 定义线程栈时要求 RT_ALIGN_SIZE个字节对齐
-ALIGN(RT_ALIGN_SIZE)
-// 定义线程栈
-static rt_uint8_t rt_led1_thread_stack[1024];
 
 /*
  ******************************************************************
@@ -45,16 +41,23 @@ int main(void)
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
 
-	rt_thread_init(&led1_thread,					// 线程控制块
-					"led1",							// 线程名字
+	led1_thread = 									// 线程控制块指针
+	rt_thread_create("led1",							// 线程名字
 					led1_thread_entry,				// 线程入口函数
 					RT_NULL,						// 线程入口函数参数
-					&rt_led1_thread_stack[0],		// 线程栈起始地址
-					sizeof(rt_led1_thread_stack),	// 线程栈大小
+					512,	// 线程栈大小
 					3,								// 线程的优先级
 					20);							// 线程时间片
 
-	rt_thread_startup(&led1_thread);				// 启动线程，开始调度
+	// 启动线程，开启调度
+	if (led1_thread != RT_NULL)
+	{
+		rt_thread_startup(led1_thread);
+	}
+	else
+	{
+		return -1;
+	}
 }
 
 /*
@@ -66,10 +69,10 @@ static void led1_thread_entry(void *parameter)
 {
 	while (1)
 	{
-		LED1_ON;
+		LED2_ON;
 		rt_thread_delay(500);			// 延时 500 个tick
 
-		LED1_OFF;
+		LED2_OFF;
 		rt_thread_delay(500);			// 延时 500 个tick
 	}
 }
