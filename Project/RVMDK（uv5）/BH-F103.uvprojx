@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>STM32F10X_HD, USE_STDPERIPH_DRIVER</Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\Libraries\CMSIS;..\..\User;..\..\Libraries\FWlib\inc;..\..\User\led;..\..\rt-thread\3.0.3\components\finsh;..\..\rt-thread\3.0.3\include\libc;..\..\rt-thread\3.0.3\include</IncludePath>
+              <IncludePath>..\..\Libraries\CMSIS;..\..\User;..\..\Libraries\FWlib\inc;..\..\User\led;..\..\rt-thread\3.0.3\components\finsh;..\..\rt-thread\3.0.3\include\libc;..\..\rt-thread\3.0.3\include;..\..\User\usart</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -577,6 +577,11 @@
               <FileName>rtconfig.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\..\User\rtconfig.h</FilePath>
+            </File>
+            <File>
+              <FileName>bsp_usart.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\User\usart\bsp_usart.c</FilePath>
             </File>
           </Files>
         </Group>

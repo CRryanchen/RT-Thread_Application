@@ -15,6 +15,7 @@ extern "C"{
 
 // 开发板硬件 bsp 头文件
 #include "bsp_led.h"
+#include "bsp_usart.h"
 
 /*
  ******************************************************************
@@ -23,6 +24,7 @@ extern "C"{
  */
 void rt_hw_board_init(void);
 void SysTick_Handler(void);
+void rt_hw_console_output(const char *str);
 
 #ifdef __cplusplus
 }

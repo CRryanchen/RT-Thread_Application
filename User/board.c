@@ -82,6 +82,9 @@ void rt_hw_board_init()
     // 初始化开发板的LED
     LED_GPIO_Config();
 
+    // 初始化开发板的串口
+    USART_Config();
+
     /* Call components board initial (use INIT_BOARD_EXPORT()) */
 #ifdef RT_USING_COMPONENTS_INIT
     rt_components_board_init();
@@ -105,4 +108,27 @@ void SysTick_Handler(void)
 
 	/* leave interrupt */
 	rt_interrupt_leave();
+}
+
+
+void rt_hw_console_output(const char *str)
+{
+    /* 进入临界段 */
+    rt_enter_critical();
+
+    /* 直到字符串结束 */
+    while (*str != '\0')
+    {
+        /* 换行 */
+        if (*str == '\n')
+        {
+            USART_SendData(DEBUG_USARTx, '\r');
+            while (USART_GetFlagStatus(DEBUG_USARTx, USART_FLAG_TXE) == RESET);
+        }
+        USART_SendData(DEBUG_USARTx, *str++);
+        while (USART_GetFlagStatus(DEBUG_USARTx, USART_FLAG_TXE) == RESET);
+    }
+
+    /* 退出临界段 */
+    rt_exit_critical();
 }
