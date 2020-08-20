@@ -101,7 +101,7 @@
 // <h>Memory Management Configuration
 // <c1>Using Memory Pool Management
 //  <i>Using Memory Pool Management
-//#define RT_USING_MEMPOOL
+#define RT_USING_MEMPOOL
 // </c>
 // <c1>Dynamic Heap Management
 //  <i>Dynamic Heap Management

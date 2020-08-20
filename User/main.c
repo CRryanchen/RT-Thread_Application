@@ -12,26 +12,29 @@
  ******************************************************************
  */
 // 定义线程控制块
-static rt_thread_t receive_thread = RT_NULL;
-static rt_thread_t send_thread = RT_NULL;
-// 定义邮箱控制块
-static rt_mailbox_t test_mail = RT_NULL;
+static rt_thread_t alloc_thread = RT_NULL;
+static rt_thread_t free_thread = RT_NULL;
+// 定义内存池控制块
+static rt_mp_t test_mp = RT_NULL;
+// 定义申请内存的指针
+static rt_uint32_t *p_test = RT_NULL;
 
 /*
  ******************************************************************
  *                          全局变量声明
  ******************************************************************
  */
-char test_str1[] = "This is a mail test 1";
-char test_str2[] = "This is a mail test 2";
 
+// 宏定义
+#define BLOCK_COUNT			20			// 内存块数量
+#define	BLOCK_SIZE			3			// 内存块大小
 /*
  ******************************************************************
  *                          函数声明
  ******************************************************************
  */
-static void receive_thread_entry(void *parameter);
-static void send_thread_entry(void *parameter);
+static void alloc_thread_entry(void *parameter);
+static void free_thread_entry(void *parameter);
 
 
 /*
@@ -51,44 +54,44 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
-	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 邮箱消息实验！\n");
-	rt_kprintf("按下 K1 | K2 进行邮箱实验测试！\n");
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 静态内存管理实验！\n");
+	rt_kprintf("正在创建一个内存池......\n");
 
-	// 创建一个邮箱
-	test_mail = rt_mb_create("test_mail",				// 邮箱名字
-							10,							// 邮箱大小
-							RT_IPC_FLAG_FIFO);			// 邮箱模式：FIFO
-	if (test_mail != RT_NULL)
+	// 创建一个静态内存池
+	test_mp = rt_mp_create("test_mp",				// 内存池名字
+							BLOCK_COUNT,
+							BLOCK_SIZE);
+	if (test_mp != RT_NULL)
 	{
-		rt_kprintf("邮箱创建成功！\n");
+		rt_kprintf("静态内存池创建成功！\n");
 	}
 
-	receive_thread = rt_thread_create("receive",
-										receive_thread_entry,
-										RT_NULL,
-										512,
-										3,
-										20);
+	alloc_thread = rt_thread_create("alloc",
+									alloc_thread_entry,
+									RT_NULL,
+									512,
+									1,
+									20);
 	// 启动线程，开启调度
-	if (receive_thread != RT_NULL)
+	if (alloc_thread != RT_NULL)
 	{
-		rt_thread_startup(receive_thread);
+		rt_thread_startup(alloc_thread);
 	}
 	else
 	{
 		return -1;
 	}
 
-	send_thread = rt_thread_create("send",
-									send_thread_entry,
+	free_thread = rt_thread_create("free",
+									free_thread_entry,
 									RT_NULL,
 									512,
 									2,
 									20);
 	// 启动线程，开启调度
-	if (send_thread != RT_NULL)
+	if (free_thread != RT_NULL)
 	{
-		rt_thread_startup(send_thread);
+		rt_thread_startup(free_thread);
 	}
 	else
 	{
@@ -103,65 +106,49 @@ int main(void)
  *                          线程定义
  ******************************************************************
  */
-static void receive_thread_entry(void *parameter)
+static void alloc_thread_entry(void *parameter)
 {
-	rt_err_t uwRet = RT_EOK;
-	char *r_str;
+	rt_kprintf("正在向内存池申请内存......\n");
+
+	p_test = rt_mp_alloc(test_mp, 0);
+	if (p_test == RT_NULL)
+	{
+		rt_kprintf("静态内存申请失败!\n");
+	}
+	else
+	{
+		rt_kprintf("静态内存申请成功，地址%d!\n\n", p_test);
+	}
+	rt_kprintf("正在向p_test 写入数据......\n");
+	*p_test = 1234;
+	rt_kprintf("已经写入p_test地址的数据\n");
+	rt_kprintf("*p_test=%.4d, 地址为%d\n\n", *p_test, p_test);
+
 	while (1)
 	{
-		// 等待邮箱消息
-		uwRet = rt_mb_recv(test_mail,
-							(rt_uint32_t*)&r_str,
-							RT_WAITING_FOREVER);
-		if (RT_EOK == uwRet)
-		{
-			rt_kprintf("邮箱的内容是：%s\n\n", r_str);
-		}
-		else
-		{
-			rt_kprintf("邮箱接收错误！错误码是0x%x\n", uwRet);
-		}
+		LED2_TOGGLE;
+		rt_thread_delay(1000);
 	}
 }
 
-static void send_thread_entry(void *parameter)
+static void free_thread_entry(void *parameter)
 {
 	rt_err_t uwRet = RT_EOK;
+	rt_kprintf("正在释放内存......\n");
+	rt_mp_free(p_test);
+	rt_kprintf("释放内存成功！\n\n");
+	rt_kprintf("正在删除内存.......\n");
+	uwRet = rt_mp_delete(test_mp);
+	if (uwRet == RT_EOK)
+	{
+		rt_kprintf("删除内存成功！\n");
+	}
+
 	while (1)
 	{
-		// 如果 KEY1 被单击
-		if (Key_Scan(KEY1_GPIO_PORT, KEY1_GPIO_PIN) == KEY_ON)
-		{
-			rt_kprintf("KEY1 被单击\n");
-			// 发送一个邮箱消息
-			uwRet = rt_mb_send(test_mail, (rt_uint32_t)&test_str1);
-			if (RT_EOK ==uwRet)
-			{
-				rt_kprintf("邮箱消息发送成功\n");
-			}
-			else
-			{
-				rt_kprintf("邮箱消息发送失败\n");
-			}
-		}
-		
-		
-		// 如果 KEY2 被单击
-		if (Key_Scan(KEY2_GPIO_PORT, KEY2_GPIO_PIN) == KEY_ON)
-		{
-			rt_kprintf("KEY2 被单击\n");
-			// 发送一个邮箱消息
-			uwRet = rt_mb_send(test_mail, (rt_uint32_t)&test_str2);
-			if (RT_EOK ==uwRet)
-			{
-				rt_kprintf("邮箱消息发送成功\n");
-			}
-			else
-			{
-				rt_kprintf("邮箱消息发送失败\n");
-			}
-		}
-		rt_thread_delay(20);
+		LED1_TOGGLE;
+		rt_thread_delay(500);
 	}
+	
 }
 
