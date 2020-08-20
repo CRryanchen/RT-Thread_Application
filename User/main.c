@@ -14,8 +14,6 @@
 // 定义线程控制块
 static rt_thread_t alloc_thread = RT_NULL;
 static rt_thread_t free_thread = RT_NULL;
-// 定义内存池控制块
-static rt_mp_t test_mp = RT_NULL;
 // 定义申请内存的指针
 static rt_uint32_t *p_test = RT_NULL;
 
@@ -26,8 +24,8 @@ static rt_uint32_t *p_test = RT_NULL;
  */
 
 // 宏定义
-#define BLOCK_COUNT			20			// 内存块数量
-#define	BLOCK_SIZE			3			// 内存块大小
+#define TEST_SIZE			100			// 内存大小
+
 /*
  ******************************************************************
  *                          函数声明
@@ -54,17 +52,7 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
-	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 静态内存管理实验！\n");
-	rt_kprintf("正在创建一个内存池......\n");
-
-	// 创建一个静态内存池
-	test_mp = rt_mp_create("test_mp",				// 内存池名字
-							BLOCK_COUNT,
-							BLOCK_SIZE);
-	if (test_mp != RT_NULL)
-	{
-		rt_kprintf("静态内存池创建成功！\n");
-	}
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 动态内存管理实验！\n");
 
 	alloc_thread = rt_thread_create("alloc",
 									alloc_thread_entry,
@@ -110,14 +98,14 @@ static void alloc_thread_entry(void *parameter)
 {
 	rt_kprintf("正在向内存池申请内存......\n");
 
-	p_test = rt_mp_alloc(test_mp, 0);
+	p_test = rt_malloc(TEST_SIZE);
 	if (p_test == RT_NULL)
 	{
-		rt_kprintf("静态内存申请失败!\n");
+		rt_kprintf("动态内存申请失败!\n");
 	}
 	else
 	{
-		rt_kprintf("静态内存申请成功，地址%d!\n\n", p_test);
+		rt_kprintf("动态内存申请成功，地址%d!\n\n", p_test);
 	}
 	rt_kprintf("正在向p_test 写入数据......\n");
 	*p_test = 1234;
@@ -133,16 +121,9 @@ static void alloc_thread_entry(void *parameter)
 
 static void free_thread_entry(void *parameter)
 {
-	rt_err_t uwRet = RT_EOK;
 	rt_kprintf("正在释放内存......\n");
-	rt_mp_free(p_test);
+	rt_free(p_test);
 	rt_kprintf("释放内存成功！\n\n");
-	rt_kprintf("正在删除内存.......\n");
-	uwRet = rt_mp_delete(test_mp);
-	if (uwRet == RT_EOK)
-	{
-		rt_kprintf("删除内存成功！\n");
-	}
 
 	while (1)
 	{
