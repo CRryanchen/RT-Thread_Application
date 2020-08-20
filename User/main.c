@@ -11,28 +11,25 @@
  *                          变量
  ******************************************************************
  */
-// 定义线程控制块指针
-static rt_thread_t receive_thread = RT_NULL;
-static rt_thread_t send_thread = RT_NULL;
-// 定义事件控制块
-static rt_event_t test_event = RT_NULL;
-
+// 定义软件定时器控制块
+static rt_timer_t swtmr1 = RT_NULL;
+static rt_timer_t swtmr2 = RT_NULL;
 
 /*
  ******************************************************************
  *                          全局变量声明
  ******************************************************************
  */
-#define KEY1_EVENT	(0x01 << 0)				// 设置事件掩码的位0
-#define KEY2_EVENT	(0X01 << 1)				// 设置事件掩码的位1
+static uint32_t TmrCb_Count1 = 0;
+static uint32_t TmrCb_Count2 = 0;
 
 /*
  ******************************************************************
  *                          函数声明
  ******************************************************************
  */
-static void receive_thread_entry(void *parameter);
-static void send_thread_entry(void *parameter);
+static void swtmr1_callback(void *parameter);
+static void swtmr2_callback(void *parameter);
 
 
 /*
@@ -52,51 +49,32 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
-	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 事件标志组实验！\n");
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 软件定时器实验！\n");
+	rt_kprintf("定时器超时函数1 只执行一次就被销毁\n");
+	rt_kprintf("定时器超时函数2 则循环执行\n");
 
-	// 创建一个事件
-	test_event = rt_event_create("test_event",			// 事件标志组名字
-							RT_IPC_FLAG_PRIO);			// 事件模式 FIFO
-	if (test_event != RT_NULL)
+	// 创建一个软件定时器
+	swtmr1 = rt_timer_create("swtmr1_callback",									// 软件定时器名字
+							swtmr1_callback,									// 软件定时器的超时函数
+							0,													// 超时函数的入口参数
+							5000,												// 定时器超时时间
+							RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);	// 软件定时器、一次模式
+	if (swtmr1 != RT_NULL)
 	{
-		rt_kprintf("事件创建成功！\n\n");
+		rt_timer_start(swtmr1);
 	}
 
-	receive_thread = 									// 线程控制块指针
-	rt_thread_create("receive",							// 线程名字
-					receive_thread_entry,				// 线程入口函数
-					RT_NULL,							// 线程入口函数参数
-					512,								// 线程栈大小
-					3,									// 线程的优先级
-					20);								// 线程时间片
-
-	// 启动线程，开启调度
-	if (receive_thread != RT_NULL)
+	// 创建一个软件定时器
+	swtmr2 = rt_timer_create("swtmr2_callback",									// 软件定时器名字
+							swtmr2_callback,									// 软件定时器的超时函数
+							0,													// 超时函数的入口参数
+							1000,												// 定时器超时时间
+							RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);	// 软件定时器、一次模式
+	if (swtmr2 != RT_NULL)
 	{
-		rt_thread_startup(receive_thread);
-	}
-	else
-	{
-		return -1;
+		rt_timer_start(swtmr2);
 	}
 
-	send_thread = 									// 线程控制块指针
-	rt_thread_create("send",						// 线程名字
-					send_thread_entry,				// 线程入口函数
-					RT_NULL,						// 线程入口函数参数
-					512,							// 线程栈大小
-					2,								// 线程的优先级
-					20);							// 线程时间片
-
-	// 启动线程，开启调度
-	if (send_thread != RT_NULL)
-	{
-		rt_thread_startup(send_thread);
-	}
-	else
-	{
-		return -1;
-	}
 }
 
 /*
@@ -104,46 +82,27 @@ int main(void)
  *                          线程定义
  ******************************************************************
  */
-static void receive_thread_entry(void *parameter)
+static void swtmr1_callback(void *parameter)
 {
-	rt_uint32_t recved;
-	while (1)
-	{
-		rt_event_recv(test_event, 									// 事件对象句柄
-						KEY1_EVENT | KEY2_EVENT,					// 接收感兴趣的事件
-						RT_EVENT_FLAG_AND | RT_EVENT_FLAG_CLEAR,	// 接收选项
-						RT_WAITING_FOREVER,							// 指定超时事件
-						&recved);									// 指向接收到的事件
-		if (recved == (KEY1_EVENT | KEY2_EVENT))
-		{
-			rt_kprintf ( "Key1 与 Key2 都按下\n" );
-			LED1_TOGGLE;
-		}
-		else
-		{
-			rt_kprintf ( "事件错误！\n" );
-		}
-	}
+	rt_uint32_t tick_num1;
+	
+	TmrCb_Count1++;
+
+	tick_num1 = (uint32_t)rt_tick_get();
+
+	rt_kprintf("swtmr1_callback 函数执行 %d 次\n", TmrCb_Count1);
+	rt_kprintf("滴答定时器数值=%d\n", tick_num1);
 }
 
-static void send_thread_entry(void *parameter)
+static void swtmr2_callback(void *parameter)
 {
-	while (1)
-	{
-		if (Key_Scan(KEY1_GPIO_PORT, KEY1_GPIO_PIN) == KEY_ON)
-		{
-			rt_kprintf( "KEY1 被单击\n" );
-			// 发送一个事件
-			rt_event_send(test_event, KEY1_EVENT);
-		}
+	rt_uint32_t tick_num2;
+	
+	TmrCb_Count2++;
 
-		if (Key_Scan(KEY2_GPIO_PORT, KEY2_GPIO_PIN) == KEY_ON)
-		{
-			rt_kprintf( "KEY2 被单击\n" );
-			// 发送一个事件
-			rt_event_send(test_event, KEY2_EVENT);
-		}
-		rt_thread_delay(20);
-	}
+	tick_num2 = (uint32_t)rt_tick_get();
+
+	rt_kprintf("swtmr2_callback 函数执行 %d 次\n", TmrCb_Count2);
+	rt_kprintf("滴答定时器数值=%d\n", tick_num2);
 }
 
