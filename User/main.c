@@ -11,25 +11,27 @@
  *                          变量
  ******************************************************************
  */
-// 定义软件定时器控制块
-static rt_timer_t swtmr1 = RT_NULL;
-static rt_timer_t swtmr2 = RT_NULL;
+// 定义线程控制块
+static rt_thread_t receive_thread = RT_NULL;
+static rt_thread_t send_thread = RT_NULL;
+// 定义邮箱控制块
+static rt_mailbox_t test_mail = RT_NULL;
 
 /*
  ******************************************************************
  *                          全局变量声明
  ******************************************************************
  */
-static uint32_t TmrCb_Count1 = 0;
-static uint32_t TmrCb_Count2 = 0;
+char test_str1[] = "This is a mail test 1";
+char test_str2[] = "This is a mail test 2";
 
 /*
  ******************************************************************
  *                          函数声明
  ******************************************************************
  */
-static void swtmr1_callback(void *parameter);
-static void swtmr2_callback(void *parameter);
+static void receive_thread_entry(void *parameter);
+static void send_thread_entry(void *parameter);
 
 
 /*
@@ -49,31 +51,50 @@ int main(void)
 	 * 即在 component.c 文件中的 rtthread_startup() 函数中完成了
 	 * 所以在 main 函数中，只需要创建线程和启动线程即可
 	 */
-	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 软件定时器实验！\n");
-	rt_kprintf("定时器超时函数1 只执行一次就被销毁\n");
-	rt_kprintf("定时器超时函数2 则循环执行\n");
+	rt_kprintf("这是一个[野火]-STM32 全系列开发板 RTT 邮箱消息实验！\n");
+	rt_kprintf("按下 K1 | K2 进行邮箱实验测试！\n");
 
-	// 创建一个软件定时器
-	swtmr1 = rt_timer_create("swtmr1_callback",									// 软件定时器名字
-							swtmr1_callback,									// 软件定时器的超时函数
-							0,													// 超时函数的入口参数
-							5000,												// 定时器超时时间
-							RT_TIMER_FLAG_ONE_SHOT | RT_TIMER_FLAG_SOFT_TIMER);	// 软件定时器、一次模式
-	if (swtmr1 != RT_NULL)
+	// 创建一个邮箱
+	test_mail = rt_mb_create("test_mail",				// 邮箱名字
+							10,							// 邮箱大小
+							RT_IPC_FLAG_FIFO);			// 邮箱模式：FIFO
+	if (test_mail != RT_NULL)
 	{
-		rt_timer_start(swtmr1);
+		rt_kprintf("邮箱创建成功！\n");
 	}
 
-	// 创建一个软件定时器
-	swtmr2 = rt_timer_create("swtmr2_callback",									// 软件定时器名字
-							swtmr2_callback,									// 软件定时器的超时函数
-							0,													// 超时函数的入口参数
-							1000,												// 定时器超时时间
-							RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);	// 软件定时器、一次模式
-	if (swtmr2 != RT_NULL)
+	receive_thread = rt_thread_create("receive",
+										receive_thread_entry,
+										RT_NULL,
+										512,
+										3,
+										20);
+	// 启动线程，开启调度
+	if (receive_thread != RT_NULL)
 	{
-		rt_timer_start(swtmr2);
+		rt_thread_startup(receive_thread);
 	}
+	else
+	{
+		return -1;
+	}
+
+	send_thread = rt_thread_create("send",
+									send_thread_entry,
+									RT_NULL,
+									512,
+									2,
+									20);
+	// 启动线程，开启调度
+	if (send_thread != RT_NULL)
+	{
+		rt_thread_startup(send_thread);
+	}
+	else
+	{
+		return -1;
+	}
+	
 
 }
 
@@ -82,27 +103,65 @@ int main(void)
  *                          线程定义
  ******************************************************************
  */
-static void swtmr1_callback(void *parameter)
+static void receive_thread_entry(void *parameter)
 {
-	rt_uint32_t tick_num1;
-	
-	TmrCb_Count1++;
-
-	tick_num1 = (uint32_t)rt_tick_get();
-
-	rt_kprintf("swtmr1_callback 函数执行 %d 次\n", TmrCb_Count1);
-	rt_kprintf("滴答定时器数值=%d\n", tick_num1);
+	rt_err_t uwRet = RT_EOK;
+	char *r_str;
+	while (1)
+	{
+		// 等待邮箱消息
+		uwRet = rt_mb_recv(test_mail,
+							(rt_uint32_t*)&r_str,
+							RT_WAITING_FOREVER);
+		if (RT_EOK == uwRet)
+		{
+			rt_kprintf("邮箱的内容是：%s\n\n", r_str);
+		}
+		else
+		{
+			rt_kprintf("邮箱接收错误！错误码是0x%x\n", uwRet);
+		}
+	}
 }
 
-static void swtmr2_callback(void *parameter)
+static void send_thread_entry(void *parameter)
 {
-	rt_uint32_t tick_num2;
-	
-	TmrCb_Count2++;
-
-	tick_num2 = (uint32_t)rt_tick_get();
-
-	rt_kprintf("swtmr2_callback 函数执行 %d 次\n", TmrCb_Count2);
-	rt_kprintf("滴答定时器数值=%d\n", tick_num2);
+	rt_err_t uwRet = RT_EOK;
+	while (1)
+	{
+		// 如果 KEY1 被单击
+		if (Key_Scan(KEY1_GPIO_PORT, KEY1_GPIO_PIN) == KEY_ON)
+		{
+			rt_kprintf("KEY1 被单击\n");
+			// 发送一个邮箱消息
+			uwRet = rt_mb_send(test_mail, (rt_uint32_t)&test_str1);
+			if (RT_EOK ==uwRet)
+			{
+				rt_kprintf("邮箱消息发送成功\n");
+			}
+			else
+			{
+				rt_kprintf("邮箱消息发送失败\n");
+			}
+		}
+		
+		
+		// 如果 KEY2 被单击
+		if (Key_Scan(KEY2_GPIO_PORT, KEY2_GPIO_PIN) == KEY_ON)
+		{
+			rt_kprintf("KEY2 被单击\n");
+			// 发送一个邮箱消息
+			uwRet = rt_mb_send(test_mail, (rt_uint32_t)&test_str2);
+			if (RT_EOK ==uwRet)
+			{
+				rt_kprintf("邮箱消息发送成功\n");
+			}
+			else
+			{
+				rt_kprintf("邮箱消息发送失败\n");
+			}
+		}
+		rt_thread_delay(20);
+	}
 }
 
