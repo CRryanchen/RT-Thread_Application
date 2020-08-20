@@ -25,6 +25,73 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h"
+#include "board.h"
+#include "rtthread.h"
+
+
+// 外部定义消息队列控制块
+extern rt_mq_t test_mq;
+
+uint32_t send_data1 = 1;
+uint32_t send_data2 = 2;
+
+void KEY1_IRQHandler(void)
+{
+  // 进入中断
+  rt_interrupt_enter();
+  
+  // 确保是否产生了EXTI line中断
+  if (EXTI_GetITStatus(KEY1_INT_EXTI_LINE) != RESET)
+  {
+    // 将数据写入到队列中
+    rt_mq_send(test_mq,
+                &send_data1,
+                sizeof(send_data1));
+    // 清除中断标志位
+    EXTI_ClearITPendingBit(KEY1_INT_EXTI_LINE);
+  }
+
+  // 离开中断
+  rt_interrupt_leave();
+}
+
+void KEY2_IRQHandler(void)
+{
+  // 进入中断
+  rt_interrupt_enter();
+  
+  // 确保是否产生了EXTI line中断
+  if (EXTI_GetITStatus(KEY2_INT_EXTI_LINE) != RESET)
+  {
+    // 将数据写入到队列中
+    rt_mq_send(test_mq,
+                &send_data2,
+                sizeof(send_data2));
+    // 清除中断标志位
+    EXTI_ClearITPendingBit(KEY2_INT_EXTI_LINE);
+  }
+
+  // 离开中断
+  rt_interrupt_leave();
+}
+
+void DEBUG_USART_IRQHandler(void)
+{
+  // 进入中断
+  rt_interrupt_enter();
+
+  if (USART_GetITStatus(DEBUG_USARTx, USART_IT_IDLE) != RESET)
+  {
+    // 释放一个信号量，表示数据已接收
+    Uart_DMA_Rx_Data();
+    // 清除标志位
+    USART_ReceiveData(DEBUG_USARTx);
+  }
+  
+  // 离开中断
+  rt_interrupt_leave();
+}
+
 
 /** @addtogroup STM32F10x_StdPeriph_Template
   * @{
